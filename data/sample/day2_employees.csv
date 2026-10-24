@@ -1,0 +1,11 @@
+employee_id,full_name,work_email,department_id,department_name,role_id,manager_id,hire_date,employment_status,work_location
+EMP-0001,Ganesh Murthy,ganesh.murthy@znova-demo.example,D01,Engineering,R002,EMP-0002,2012-01-19,Resigned,Pune
+EMP-0002,Jatin Jayaraman,jatin.jayaraman@znova-demo.example,D08,Finance & Accounts,R047,EMP-0361,2012-01-31,Active,Pune
+EMP-0003,Uday Naik,uday.naik@znova-demo.example,D09,Operations & IT,R051,EMP-0196,2012-03-08,Resigned,Coimbatore
+EMP-0004,Zaid Selvam,zaid.selvam@znova-demo.example,D03,Data & AI,R017,EMP-0246,2012-03-20,Active,Erode
+EMP-0005,Janani Philip,janani.philip@znova-demo.example,D02,Product & Design,R010,EMP-0055,2012-03-28,Resigned,Bengaluru
+EMP-0006,Tejas Chowdhury,tejas.chowdhury@znova-demo.example,D00,Executive Office,R001,,2012-04-02,Active,Coimbatore
+EMP-0007,Jyothi Chowdhury,jyothi.chowdhury@znova-demo.example,D01,Engineering,R006,EMP-0431,2012-04-03,Resigned,Hyderabad
+EMP-0008,Vidya Saxena,vidya.saxena@znova-demo.example,D06,Customer Support,R035,EMP-0469,2012-05-07,Resigned,Chennai
+EMP-0009,Ramesh Siddiqui,ramesh.siddiqui@znova-demo.example,D04,Sales,R025,EMP-0035,2012-07-18,Resigned,Chennai
+EMP-0010,Faisal Das,faisal.das@znova-demo.example,D01,Engineering,R005,EMP-0044,2012-09-28,Resigned,Delhi NCR

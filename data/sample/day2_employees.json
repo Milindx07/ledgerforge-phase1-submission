@@ -1,0 +1,122 @@
+[
+  {
+    "employee_id": "EMP-0001",
+    "full_name": "Ganesh Murthy",
+    "work_email": "ganesh.murthy@znova-demo.example",
+    "department_id": "D01",
+    "department_name": "Engineering",
+    "role_id": "R002",
+    "manager_id": "EMP-0002",
+    "hire_date": "2012-01-19T00:00:00.000",
+    "employment_status": "Resigned",
+    "work_location": "Pune"
+  },
+  {
+    "employee_id": "EMP-0002",
+    "full_name": "Jatin Jayaraman",
+    "work_email": "jatin.jayaraman@znova-demo.example",
+    "department_id": "D08",
+    "department_name": "Finance & Accounts",
+    "role_id": "R047",
+    "manager_id": "EMP-0361",
+    "hire_date": "2012-01-31T00:00:00.000",
+    "employment_status": "Active",
+    "work_location": "Pune"
+  },
+  {
+    "employee_id": "EMP-0003",
+    "full_name": "Uday Naik",
+    "work_email": "uday.naik@znova-demo.example",
+    "department_id": "D09",
+    "department_name": "Operations & IT",
+    "role_id": "R051",
+    "manager_id": "EMP-0196",
+    "hire_date": "2012-03-08T00:00:00.000",
+    "employment_status": "Resigned",
+    "work_location": "Coimbatore"
+  },
+  {
+    "employee_id": "EMP-0004",
+    "full_name": "Zaid Selvam",
+    "work_email": "zaid.selvam@znova-demo.example",
+    "department_id": "D03",
+    "department_name": "Data & AI",
+    "role_id": "R017",
+    "manager_id": "EMP-0246",
+    "hire_date": "2012-03-20T00:00:00.000",
+    "employment_status": "Active",
+    "work_location": "Erode"
+  },
+  {
+    "employee_id": "EMP-0005",
+    "full_name": "Janani Philip",
+    "work_email": "janani.philip@znova-demo.example",
+    "department_id": "D02",
+    "department_name": "Product & Design",
+    "role_id": "R010",
+    "manager_id": "EMP-0055",
+    "hire_date": "2012-03-28T00:00:00.000",
+    "employment_status": "Resigned",
+    "work_location": "Bengaluru"
+  },
+  {
+    "employee_id": "EMP-0006",
+    "full_name": "Tejas Chowdhury",
+    "work_email": "tejas.chowdhury@znova-demo.example",
+    "department_id": "D00",
+    "department_name": "Executive Office",
+    "role_id": "R001",
+    "manager_id": null,
+    "hire_date": "2012-04-02T00:00:00.000",
+    "employment_status": "Active",
+    "work_location": "Coimbatore"
+  },
+  {
+    "employee_id": "EMP-0007",
+    "full_name": "Jyothi Chowdhury",
+    "work_email": "jyothi.chowdhury@znova-demo.example",
+    "department_id": "D01",
+    "department_name": "Engineering",
+    "role_id": "R006",
+    "manager_id": "EMP-0431",
+    "hire_date": "2012-04-03T00:00:00.000",
+    "employment_status": "Resigned",
+    "work_location": "Hyderabad"
+  },
+  {
+    "employee_id": "EMP-0008",
+    "full_name": "Vidya Saxena",
+    "work_email": "vidya.saxena@znova-demo.example",
+    "department_id": "D06",
+    "department_name": "Customer Support",
+    "role_id": "R035",
+    "manager_id": "EMP-0469",
+    "hire_date": "2012-05-07T00:00:00.000",
+    "employment_status": "Resigned",
+    "work_location": "Chennai"
+  },
+  {
+    "employee_id": "EMP-0009",
+    "full_name": "Ramesh Siddiqui",
+    "work_email": "ramesh.siddiqui@znova-demo.example",
+    "department_id": "D04",
+    "department_name": "Sales",
+    "role_id": "R025",
+    "manager_id": "EMP-0035",
+    "hire_date": "2012-07-18T00:00:00.000",
+    "employment_status": "Resigned",
+    "work_location": "Chennai"
+  },
+  {
+    "employee_id": "EMP-0010",
+    "full_name": "Faisal Das",
+    "work_email": "faisal.das@znova-demo.example",
+    "department_id": "D01",
+    "department_name": "Engineering",
+    "role_id": "R005",
+    "manager_id": "EMP-0044",
+    "hire_date": "2012-09-28T00:00:00.000",
+    "employment_status": "Resigned",
+    "work_location": "Delhi NCR"
+  }
+]

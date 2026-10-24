@@ -1,0 +1,1 @@
+"""LedgerForge FastAPI application package."""
