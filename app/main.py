@@ -10,7 +10,7 @@ settings = get_settings()
 app = FastAPI(
     title=settings.app_name,
     version="0.1.0",
-    description="LedgerForge Phase 1 API for employees, departments, teams, and seed data.",
+    description="LedgerForge training API for employees, attendance, leave, payroll, accounting, and invoices.",
 )
 
 app.include_router(api_router)

@@ -1,11 +1,11 @@
-# LedgerForge Phase 1
+# LedgerForge
 
-LedgerForge is a layered FastAPI service for the first four Phase 1 tasks: project skeleton, employee data model, CRUD APIs, and repeatable master-data seeding.
+LedgerForge is a layered FastAPI service for employee and payroll operations. This repository contains Phase 1 foundations and Phase 2 attendance, leave, payroll, payslip, accounting, and invoice workflows.
 
-Local project path:
+Local project path (PowerShell):
 
 ```powershell
-cd C:\Users\mikki\Documents\LedgerForge
+cd C:\Users\mikki\Documents\LedgerForge_Phase1_Submission
 ```
 
 ## What is included
@@ -58,7 +58,7 @@ cd LedgerForge
 pytest
 ```
 
-The tests cover health, CRUD, duplicate email constraint behavior, pagination with search and department filtering, direct reports, department employees, and shared API error format.
+The tests cover health, CRUD, duplicate email constraint behavior, pagination with search and department filtering, direct reports, department employees, shared API errors, Phase 2 attendance and leave rules, payroll calculations, payslip authorization, journal posting/reversal, and invoice lifecycle behavior.
 
 ## Seed and exports
 
@@ -116,3 +116,42 @@ LedgerForge/
   scripts/
   tests/
 ```
+
+## Phase 2 workflows
+
+Phase 2 extends the schema through Alembic and loads the provided master and transaction CSVs. Attendance imports in chunks of 5,000 rows. Payroll output is calculated by the application engine from employee, salary, attendance, statutory, and tax inputs; `data/master/payroll_items.csv` is retained only as the supplied answer key for comparison and is not loaded as calculation input.
+
+Run migrations and load the full dataset:
+
+```powershell
+cd C:\Users\mikki\Documents\LedgerForge_Phase1_Submission
+python -m alembic upgrade head
+python -m scripts.seed
+```
+
+Useful Phase 2 routes include:
+
+- `GET /attendance/summary/{employee_id}?year=2025&month=4`
+- `POST /leave-requests`, `POST /leave-requests/{id}/approve`, `POST /leave-requests/{id}/reject`
+- `GET /payslips/{employee_id}/{run_id}` (PDF; send `X-User-Id` for the requesting employee or an HR user)
+- `GET /accounting/accounts/{account_code}/balance`, `POST /accounting/journal-entries/{id}/reverse`
+- Invoice draft, cancellation, posting, payment, and receivables routes under `/invoices`
+
+For API details, use `http://localhost:8000/docs`. The `X-User-Id` header is a demonstration identity mechanism for this learning project, not production authentication. Use the documented examples and tests to see request shapes.
+
+Run the focused Phase 2 checks:
+
+```powershell
+python -m pytest
+python -m scripts.attendance_hand_check
+python -m scripts.calculate_payroll
+python scripts/verify_ledgerforge.py checks --data data/master
+python scripts/verify_ledgerforge.py payroll exports/payroll_run.csv --data data/master
+python -m scripts.diagnose_payroll
+```
+
+The mini-challenge walkthrough and evidence files are in `docs/phase2_evidence/`. Payroll accuracy is evaluated separately against the supplied expected-answer CSV. The current engine does not meet the stated 99% target (see the Phase 2 report and `exports/payroll_mismatch_log.csv`); the provided materials do not specify the variable-pay and tax calculation policies needed to resolve all differences. Do not describe this payroll accuracy result as passing.
+
+## Phase 2 evidence and report
+
+`docs/phase2_evidence/` contains attendance CSV/API hand checks, generated sample payslips and comparison results, and the mini-challenge walkthrough. The final report is `output/pdf/Python_MILIND_KUMAR_Phase2_Report.pdf`.

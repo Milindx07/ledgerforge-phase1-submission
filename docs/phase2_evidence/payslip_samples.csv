@@ -1,0 +1,4 @@
+employee_id,run_id,gross_pay,total_deductions,net_pay,answer_key_gross,answer_key_deductions,answer_key_net,answer_key_comparison,owner_access,pdf_signature,pdf_path
+EMP-0126,PR-2025-04,80195.76,2000.00,78195.76,80195.76,2000.0,78195.76,PASS,PASS,PASS,C:\Users\mikki\Documents\LedgerForge_Phase1_Submission\docs\phase2_evidence\payslips\payslip_EMP-0126_PR-2025-04.pdf
+EMP-0459,PR-2025-04,105907.00,200.00,105707.00,105907.0,200.0,105707.0,PASS,PASS,PASS,C:\Users\mikki\Documents\LedgerForge_Phase1_Submission\docs\phase2_evidence\payslips\payslip_EMP-0459_PR-2025-04.pdf
+EMP-0460,PR-2025-04,64464.00,2000.00,62464.00,64464.0,2000.0,62464.0,PASS,PASS,PASS,C:\Users\mikki\Documents\LedgerForge_Phase1_Submission\docs\phase2_evidence\payslips\payslip_EMP-0460_PR-2025-04.pdf

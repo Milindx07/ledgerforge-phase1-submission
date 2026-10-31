@@ -18,8 +18,14 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    op.add_column("employees", sa.Column("phone_number", sa.String(length=30), nullable=True))
+    # The initial schema already contains phone_number in some distributed Phase 1
+    # databases. Keep both fresh installs and those snapshots migratable.
+    columns = {column["name"] for column in sa.inspect(op.get_bind()).get_columns("employees")}
+    if "phone_number" not in columns:
+        op.add_column("employees", sa.Column("phone_number", sa.String(length=30), nullable=True))
 
 
 def downgrade() -> None:
-    op.drop_column("employees", "phone_number")
+    columns = {column["name"] for column in sa.inspect(op.get_bind()).get_columns("employees")}
+    if "phone_number" in columns:
+        op.drop_column("employees", "phone_number")

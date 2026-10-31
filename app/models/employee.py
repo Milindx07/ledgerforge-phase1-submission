@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import Boolean, Date, ForeignKey, Index, String
+from sqlalchemy import Boolean, Date, ForeignKey, Index, Numeric, String, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -31,9 +31,22 @@ class Employee(TimestampMixin, Base):
     role_id: Mapped[str | None] = mapped_column(ForeignKey("roles.role_id"), index=True)
     manager_id: Mapped[str | None] = mapped_column(ForeignKey("employees.employee_id"), index=True)
     phone_number: Mapped[str | None] = mapped_column(String(30))
+    prior_experience_years: Mapped[float | None] = mapped_column(Numeric(6, 2))
+    career_gap_months: Mapped[int | None] = mapped_column()
+    commute_distance_km: Mapped[float | None] = mapped_column(Numeric(7, 2))
     work_location: Mapped[str | None] = mapped_column(String(80))
     work_mode: Mapped[str | None] = mapped_column(String(40))
     highest_education: Mapped[str | None] = mapped_column(String(120))
+    pf_applicable: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=text("1")
+    )
+    esi_applicable: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("0")
+    )
+    notice_period_days: Mapped[int | None] = mapped_column()
+    resignation_date: Mapped[date | None] = mapped_column(Date)
+    exit_type: Mapped[str | None] = mapped_column(String(40))
+    exit_reason: Mapped[str | None] = mapped_column(String(120))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
 
     department = relationship("Department", back_populates="employees")

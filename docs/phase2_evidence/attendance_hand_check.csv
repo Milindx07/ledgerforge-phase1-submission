@@ -1,0 +1,4 @@
+employee_id,month,csv_present,csv_wfh,csv_absent,csv_late,csv_overtime_hours,api_present,api_wfh,api_absent,api_late,api_overtime_hours,all_fields_match
+EMP-0002,2025-04,2,18,0,1,0.0,2,18,0,1,0.00,TRUE
+EMP-0004,2025-04,12,5,0,0,0.0,12,5,0,0,0.00,TRUE
+EMP-0006,2025-04,18,1,0,1,0.0,18,1,0,1,0.00,TRUE
