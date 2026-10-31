@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from datetime import date
+from calendar import monthrange
+from datetime import date, time
 from decimal import Decimal
 from io import BytesIO
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -11,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.database import get_db
-from app.models import Invoice, InvoiceItem, InvoicePayment, JournalEntry, LeaveRequest, PayrollItem, PayrollRun, User
+from app.models import Attendance, Employee, Invoice, InvoiceItem, InvoicePayment, JournalEntry, LeaveRequest, PayrollItem, PayrollRun, User
 from app.services.accounting import (
     account_balance,
     post_invoice,
@@ -67,6 +69,20 @@ class PaymentInput(BaseModel):
     reference_no: str | None = None
 
 
+class AttendanceRecord(BaseModel):
+    employee_id: str
+    attendance_date: date
+    status: str = Field(pattern="^(PRESENT|WFH|PAID_LEAVE|ABSENT_LOP|HALF_DAY_UNPAID|UNPAID_LEAVE)$")
+    check_in: time | None = None
+    check_out: time | None = None
+    hours_worked: Decimal | None = Field(default=None, ge=0, le=24)
+    overtime_hours: Decimal = Field(default=Decimal("0"), ge=0, le=24)
+    late_flag: bool = False
+    leave_type_code: str | None = None
+    source: str = "API"
+    data_quality_flag: str | None = None
+
+
 def _next_entry_id(db: Session) -> str:
     count = db.query(JournalEntry).count() + 1
     return f"JE-P2-{count:06d}"
@@ -77,6 +93,74 @@ def attendance_summary(employee_id: str, year: int, month: int, db: Session = De
     if not 1 <= month <= 12:
         raise HTTPException(422, "month must be between 1 and 12")
     return month_summary(db, employee_id, year, month)
+
+
+@router.get("/attendance/{employee_id}")
+def list_employee_attendance(employee_id: str, year: int, month: int, db: Session = Depends(get_db)):
+    if not 1 <= month <= 12:
+        raise HTTPException(422, "month must be between 1 and 12")
+    start = date(year, month, 1)
+    end = date(year, month, monthrange(year, month)[1])
+    rows = db.scalars(
+        select(Attendance)
+        .where(
+            Attendance.employee_id == employee_id,
+            Attendance.attendance_date.between(start, end),
+        )
+        .order_by(Attendance.attendance_date, Attendance.attendance_id)
+    ).all()
+    return [
+        {
+            "attendance_id": row.attendance_id,
+            "employee_id": row.employee_id,
+            "attendance_date": row.attendance_date,
+            "weekday": row.weekday,
+            "status": row.status,
+            "check_in": row.check_in,
+            "check_out": row.check_out,
+            "hours_worked": row.hours_worked,
+            "overtime_hours": row.overtime_hours,
+            "late_flag": row.late_flag,
+            "data_quality_flag": row.data_quality_flag,
+        }
+        for row in rows
+    ]
+
+
+@router.post("/attendance", status_code=status.HTTP_201_CREATED)
+def record_attendance(payload: AttendanceRecord, db: Session = Depends(get_db)):
+    employee = db.get(Employee, payload.employee_id)
+    if employee is None:
+        raise HTTPException(404, "employee not found")
+    existing = db.scalar(
+        select(Attendance).where(
+            Attendance.employee_id == payload.employee_id,
+            Attendance.attendance_date == payload.attendance_date,
+        )
+    )
+    if existing is not None:
+        raise HTTPException(409, "attendance already exists for this employee and date")
+    row = Attendance(
+        attendance_id=f"AT-API-{uuid4().hex[:12]}",
+        employee_id=payload.employee_id,
+        attendance_date=payload.attendance_date,
+        weekday=payload.attendance_date.strftime("%A"),
+        status=payload.status,
+        leave_type_code=payload.leave_type_code,
+        check_in=payload.check_in.strftime("%H:%M") if payload.check_in else None,
+        check_out=payload.check_out.strftime("%H:%M") if payload.check_out else None,
+        hours_worked=payload.hours_worked,
+        overtime_hours=payload.overtime_hours,
+        late_flag="Y" if payload.late_flag else "N",
+        source=payload.source,
+        data_quality_flag=payload.data_quality_flag,
+        department_id=employee.department_id,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return {"attendance_id": row.attendance_id, "employee_id": row.employee_id,
+            "attendance_date": row.attendance_date, "weekday": row.weekday, "status": row.status}
 
 
 @router.post("/leave/requests", status_code=status.HTTP_201_CREATED)
@@ -122,13 +206,12 @@ def reject_leave(request_id: str, payload: Decision, db: Session = Depends(get_d
     return _decide(request_id, False, payload, db)
 
 
-@router.get("/payslips/{employee_id}/{run_id}")
-def get_payslip(
+def _get_authorized_payslip_item(
     employee_id: str,
     run_id: str,
-    x_user_id: str | None = Header(default=None),
+    x_user_id: str | None,
     db: Session = Depends(get_db),
-):
+) -> PayrollItem:
     user = db.scalar(select(User).where(User.user_id == x_user_id, User.is_active.is_(True))) if x_user_id else None
     if user is None or (user.role.upper() not in {"HR", "ADMIN"} and user.employee_id != employee_id):
         raise HTTPException(403, "only the employee or HR may view this payslip")
@@ -138,6 +221,65 @@ def get_payslip(
     ))
     if item is None:
         raise HTTPException(404, "payslip not found")
+
+    return item
+
+
+def _payslip_figures(item: PayrollItem) -> dict:
+    earnings = {
+        "Basic": item.basic,
+        "HRA": item.hra,
+        "Conveyance": item.conveyance,
+        "Medical": item.medical,
+        "Special allowance": item.special_allowance,
+        "Overtime": item.overtime_pay,
+        "Variable pay": item.variable_pay,
+    }
+    deductions = {
+        "Employee PF": item.pf_employee,
+        "Employee ESI": item.esi_employee,
+        "Professional tax": item.professional_tax,
+        "TDS": item.tds,
+        "Other deductions": item.other_deductions,
+    }
+    return {
+        "employee_id": item.employee_id,
+        "run_id": item.run_id,
+        "period_start": item.period_start,
+        "period_end": item.period_end,
+        "currency": "INR",
+        "earnings": [{"name": name, "amount": f"{amount:.2f}", "formatted": indian_currency(amount)}
+                     for name, amount in earnings.items()],
+        "deductions": [{"name": name, "amount": f"{amount:.2f}", "formatted": indian_currency(amount)}
+                       for name, amount in deductions.items()],
+        "gross_pay": f"{item.gross_pay:.2f}",
+        "gross_pay_formatted": indian_currency(item.gross_pay),
+        "total_deductions": f"{item.total_deductions:.2f}",
+        "total_deductions_formatted": indian_currency(item.total_deductions),
+        "net_pay": f"{item.net_pay:.2f}",
+        "net_pay_formatted": indian_currency(item.net_pay),
+    }
+
+
+@router.get("/payslips/{employee_id}/{run_id}")
+def get_payslip(
+    employee_id: str,
+    run_id: str,
+    x_user_id: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    item = _get_authorized_payslip_item(employee_id, run_id, x_user_id, db)
+    return _payslip_figures(item)
+
+
+@router.get("/payslips/{employee_id}/{run_id}/pdf")
+def get_payslip_pdf(
+    employee_id: str,
+    run_id: str,
+    x_user_id: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    item = _get_authorized_payslip_item(employee_id, run_id, x_user_id, db)
     from reportlab.lib.pagesizes import A4
     from reportlab.pdfgen import canvas
 

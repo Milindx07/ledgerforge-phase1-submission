@@ -257,13 +257,21 @@ def receive_invoice_payment(
     return payment
 
 
-def receivables(db: Session) -> list[dict[str, object]]:
+def receivables(db: Session, *, as_of: date | None = None) -> list[dict[str, object]]:
+    as_of = as_of or date.today()
     open_invoices = db.scalars(
         select(Invoice)
         .options(selectinload(Invoice.items))
         .where(Invoice.status.in_(["SENT", "PARTIALLY_PAID", "OVERDUE"]))
         .order_by(Invoice.due_date, Invoice.invoice_number)
     ).all()
+    changed = False
+    for invoice in open_invoices:
+        if invoice.status in {"SENT", "PARTIALLY_PAID"} and invoice.due_date < as_of:
+            invoice.status = "OVERDUE"
+            changed = True
+    if changed:
+        db.commit()
     return [
         {
             "invoice_id": inv.invoice_id,

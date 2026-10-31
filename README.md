@@ -131,11 +131,16 @@ python -m scripts.seed
 
 Useful Phase 2 routes include:
 
-- `GET /attendance/summary/{employee_id}?year=2025&month=4`
+- `POST /attendance`, `GET /attendance/{employee_id}?year=2025&month=4`, `GET /attendance/{employee_id}/summary?year=2025&month=4`
 - `POST /leave-requests`, `POST /leave-requests/{id}/approve`, `POST /leave-requests/{id}/reject`
-- `GET /payslips/{employee_id}/{run_id}` (PDF; send `X-User-Id` for the requesting employee or an HR user)
+- `GET /payslips/{employee_id}/{run_id}` (JSON) and `/pdf` (PDF; send `X-User-Id` for the requesting employee or an HR user)
 - `GET /accounting/accounts/{account_code}/balance`, `POST /accounting/journal-entries/{id}/reverse`
 - Invoice draft, cancellation, posting, payment, and receivables routes under `/invoices`
+
+Attendance and invoice design notes:
+
+- `MISSING_CHECKOUT` rows remain in the attendance summary according to their recorded status, but their unverified overtime is not paid. `HALF_DAY_UNPAID` contributes 0.5 loss-of-pay day. A future half-day leave request can use a fractional day quantity and should reduce the leave balance by 0.5 only after approval; weekends and holidays remain excluded.
+- A posted invoice must not be deleted. If an already-sent invoice is cancelled, the accounting design is to issue a credit note or reversing journal entry and retain the original invoice and audit trail. The current cancellation endpoint only cancels drafts.
 
 For API details, use `http://localhost:8000/docs`. The `X-User-Id` header is a demonstration identity mechanism for this learning project, not production authentication. Use the documented examples and tests to see request shapes.
 
@@ -150,7 +155,7 @@ python scripts/verify_ledgerforge.py payroll exports/payroll_run.csv --data data
 python -m scripts.diagnose_payroll
 ```
 
-The mini-challenge walkthrough and evidence files are in `docs/phase2_evidence/`. Payroll accuracy is evaluated separately against the supplied expected-answer CSV. The current engine does not meet the stated 99% target (see the Phase 2 report and `exports/payroll_mismatch_log.csv`); the provided materials do not specify the variable-pay and tax calculation policies needed to resolve all differences. Do not describe this payroll accuracy result as passing.
+The mini-challenge walkthrough and evidence files are in `docs/phase2_evidence/`. Payroll accuracy is evaluated separately against the supplied expected-answer CSV. The current engine applies the workbook's written tax, overtime, and bonus conventions but does not meet the stated 99% target (see the Phase 2 report and `exports/payroll_mismatch_log.csv`). Some variable awards and loan deductions have no calculable source inputs in the provided task sheets. Do not describe this payroll accuracy result as passing.
 
 ## Phase 2 evidence and report
 

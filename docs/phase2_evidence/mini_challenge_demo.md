@@ -17,4 +17,4 @@
 - Existing posted training-ledger entry: `JE-000105`; debit 53363392.08, credit 53363392.08.
 - The source payroll_items.csv is used only after calculation as the comparison key; the engine does not read it.
 
-The code-backed demonstration is prepared. Milind should practice saying the five lines aloud without looking before marking the personal no-notes self-check complete.
+The five steps and employee/month output are documented for the mini challenge. For the personal no-notes self-check, I should be able to explain the flow aloud with this document closed.

@@ -29,7 +29,7 @@ def main() -> None:
             if user is None:
                 raise RuntimeError("no active HR account found for sample payslip access")
             response = client.get(
-                f"/payslips/{employee_id}/{run_id}", headers={"X-User-Id": user.user_id}
+                f"/payslips/{employee_id}/{run_id}/pdf", headers={"X-User-Id": user.user_id}
             )
             if response.status_code != 200 or not response.content.startswith(b"%PDF"):
                 raise RuntimeError(f"payslip API failed for {employee_id}: {response.status_code}")

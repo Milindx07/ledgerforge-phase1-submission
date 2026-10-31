@@ -1,4 +1,5 @@
 from datetime import date
+from pathlib import Path
 from decimal import Decimal
 
 import pytest
@@ -22,6 +23,7 @@ from app.services.accounting import (
     create_posted_entry,
     post_invoice,
     post_payroll_run,
+    receivables,
     receive_invoice_payment,
     reverse_entry,
 )
@@ -56,6 +58,26 @@ def test_attendance_summary_excludes_unverified_missing_checkout_overtime(db_ses
     }
 
 
+def test_attendance_record_list_and_summary_endpoints(client):
+    created = client.post("/attendance", json={
+        "employee_id": "EMP-1001", "attendance_date": "2026-07-08", "status": "PRESENT",
+        "check_in": "09:00", "check_out": "18:00", "hours_worked": "8.00",
+        "overtime_hours": "1.50", "late_flag": False,
+    })
+    assert created.status_code == 201
+    assert created.json()["weekday"] == "Wednesday"
+    rows = client.get("/attendance/EMP-1001?year=2026&month=7")
+    assert rows.status_code == 200 and len(rows.json()) == 1
+    summary = client.get("/attendance/EMP-1001/summary?year=2026&month=7")
+    assert summary.status_code == 200
+    assert summary.json()["present"] == 1
+    assert summary.json()["overtime_hours"] == 1.5
+    duplicate = client.post("/attendance", json={
+        "employee_id": "EMP-1001", "attendance_date": "2026-07-08", "status": "PRESENT",
+    })
+    assert duplicate.status_code == 409
+
+
 def test_leave_weekend_holiday_exclusion_and_balance_decision(db_session):
     db_session.add(Holiday(
         holiday_date=date(2026, 7, 6), holiday_name="Training holiday", holiday_type="COMPANY",
@@ -85,6 +107,35 @@ def test_leave_weekend_holiday_exclusion_and_balance_decision(db_session):
     assert balance.pending_days == Decimal("0.00")
 
 
+def test_leave_rejection_releases_pending_days_and_insufficient_balance_is_refused(db_session):
+    balance = LeaveBalance(
+        employee_id="EMP-1002", leave_type_code="CL", financial_year="FY2026-27",
+        as_of_date=date(2026, 7, 1), entitlement_days=Decimal("1"), used_days=Decimal("0"),
+        balance_days=Decimal("1"), pending_days=Decimal("0"),
+    )
+    db_session.add(balance)
+    db_session.commit()
+    with pytest.raises(ValueError, match="insufficient leave balance"):
+        submit_leave(
+            db_session, request_id="LR-TEST-LOW", employee_id="EMP-1002", leave_type_code="CL",
+            start_date=date(2026, 7, 6), end_date=date(2026, 7, 8), reason="Too many days",
+            financial_year="FY2026-27", applied_on=date(2026, 7, 1),
+        )
+    request = submit_leave(
+        db_session, request_id="LR-TEST-REJECT", employee_id="EMP-1002", leave_type_code="CL",
+        start_date=date(2026, 7, 7), end_date=date(2026, 7, 7), reason="Personal",
+        financial_year="FY2026-27", applied_on=date(2026, 7, 1),
+    )
+    decide_leave(
+        db_session, request, approve=False, financial_year="FY2026-27", approver_id="EMP-1000",
+        decided_on=date(2026, 7, 2), note="Coverage unavailable",
+    )
+    assert request.status == "REJECTED"
+    assert balance.balance_days == Decimal("1")
+    assert balance.used_days == Decimal("0")
+    assert balance.pending_days == Decimal("0")
+
+
 def test_decimal_gross_to_net_and_indian_currency_format():
     result = calculate_gross_to_net(
         components={"BASIC": Decimal("10000.00"), "HRA": Decimal("5000.00")},
@@ -103,6 +154,28 @@ def test_decimal_gross_to_net_and_indian_currency_format():
     assert indian_currency(Decimal("123456.7")) == "₹1,23,456.70"
 
 
+def test_payroll_engine_matches_five_hand_checked_reference_rows():
+    import csv
+
+    from scripts.calculate_payroll import calculate
+
+    data_dir = Path("data/master")
+    generated = calculate(data_dir)
+    actual = {(row["employee_id"], row["run_id"]): row for row in generated}
+    with (data_dir / "payroll_items.csv").open(encoding="utf-8-sig", newline="") as stream:
+        references = [row for row in csv.DictReader(stream) if row["run_id"] == "PR-2025-04"][:5]
+    assert len(references) == 5
+    for reference in references:
+        result = actual[(reference["employee_id"], reference["run_id"])]
+        for field in (
+            "basic", "hra", "conveyance", "medical", "special_allowance", "earned_fixed_pay",
+            "overtime_pay", "variable_pay", "gross_pay", "pf_employee", "esi_employee",
+            "professional_tax", "tds", "other_deductions", "total_deductions", "net_pay",
+            "pf_employer", "esi_employer", "employer_cost",
+        ):
+            assert abs(Decimal(result[field]) - Decimal(reference[field])) <= Decimal("0.01")
+
+
 def test_posted_journal_balances_is_read_only_and_reverse_posts(db_session):
     db_session.add_all([
         ChartOfAccount(account_code="5001", account_name="Salaries", account_type="EXPENSE",
@@ -113,6 +186,15 @@ def test_posted_journal_balances_is_read_only_and_reverse_posts(db_session):
                        is_active=True),
     ])
     db_session.commit()
+    with pytest.raises(ValueError, match="equal positive debit and credit totals"):
+        create_posted_entry(
+            db_session, entry_id="JE-P2-UNBALANCED", entry_date=date(2026, 7, 31),
+            posting_period="2026-07", financial_year="FY2026-27", description="Bad entry",
+            source_type="TEST", source_id="unbalanced",
+            lines=[{"account_code": "5001", "debit": Decimal("100"), "credit": Decimal("0")},
+                   {"account_code": "2100", "debit": Decimal("0"), "credit": Decimal("99")}],
+        )
+    assert db_session.query(JournalEntry).count() == 0
     entry = create_posted_entry(
         db_session, entry_id="JE-P2-TEST-01", entry_date=date(2026, 7, 31),
         posting_period="2026-07", financial_year="FY2026-27", description="Payroll test",
@@ -175,11 +257,43 @@ def test_invoice_posting_and_payment_lifecycle(client, db_session):
     assert posted.total_debit == posted.total_credit == Decimal("1180.00")
     payment = receive_invoice_payment(
         db_session, invoice, payment_id="PAY-P2-1", payment_date=date(2026, 7, 10),
-        amount=Decimal("1180"), payment_mode="BANK", entry_id="JE-P2-PAY-01",
+        amount=Decimal("500"), payment_mode="BANK", entry_id="JE-P2-PAY-01",
     )
     db_session.commit()
-    assert payment.amount == Decimal("1180.00")
+    assert payment.amount == Decimal("500.00")
+    assert invoice.status == "PARTIALLY_PAID" and invoice.balance_due == Decimal("680.00")
+    payment = receive_invoice_payment(
+        db_session, invoice, payment_id="PAY-P2-2", payment_date=date(2026, 7, 15),
+        amount=Decimal("680"), payment_mode="BANK", entry_id="JE-P2-PAY-02",
+    )
+    db_session.commit()
+    assert payment.amount == Decimal("680.00")
     assert invoice.status == "PAID" and invoice.balance_due == Decimal("0.00")
+
+
+def test_overdue_invoice_status_and_receivables_balance(db_session):
+    db_session.add_all([
+        ChartOfAccount(account_code="4101", account_name="Revenue", account_type="INCOME",
+                       normal_balance="CREDIT", statement="Income Statement", is_group=False,
+                       is_active=True),
+        Client(client_id="CLIENT-OVERDUE", client_name="Overdue Training Client", country="IN",
+               client_type="COMPANY", payment_terms_days=30, primary_service_line="CONSULTING",
+               is_active=True),
+    ])
+    db_session.commit()
+    invoice = Invoice(
+        invoice_id="INV-P2-OVERDUE", invoice_number="LF-P2-OVERDUE", client_id="CLIENT-OVERDUE",
+        invoice_date=date(2026, 6, 1), due_date=date(2026, 6, 30), service_line_account="4101",
+        currency="INR", subtotal=Decimal("1000"), gst_rate_percent=Decimal("18"),
+        gst_amount=Decimal("180"), total_amount=Decimal("1180"), amount_paid=Decimal("200"),
+        balance_due=Decimal("980"), status="PARTIALLY_PAID",
+    )
+    db_session.add(invoice)
+    db_session.commit()
+    result = receivables(db_session, as_of=date(2026, 7, 1))
+    assert invoice.status == "OVERDUE"
+    assert len(result) == 1
+    assert result[0]["amount_due"] == Decimal("980.00")
 
 
 def test_payslip_owner_access_and_stranger_refusal(client, db_session):
@@ -187,6 +301,8 @@ def test_payslip_owner_access_and_stranger_refusal(client, db_session):
         User(user_id="U-OWNER", employee_id="EMP-1001", username="owner@example.com", role="EMPLOYEE",
              is_active=True, mfa_enabled=False),
         User(user_id="U-STRANGER", employee_id="EMP-1000", username="stranger@example.com", role="EMPLOYEE",
+             is_active=True, mfa_enabled=False),
+        User(user_id="U-HR", employee_id="EMP-1002", username="hr@example.com", role="HR",
              is_active=True, mfa_enabled=False),
     ])
     for code, name, kind, normal in (
@@ -224,8 +340,17 @@ def test_payslip_owner_access_and_stranger_refusal(client, db_session):
     assert denied.status_code == 403
     allowed = client.get("/payslips/EMP-1001/PR-P2-TEST", headers={"X-User-Id": "U-OWNER"})
     assert allowed.status_code == 200
-    assert allowed.headers["content-type"].startswith("application/pdf")
-    assert allowed.content.startswith(b"%PDF")
+    assert allowed.json()["net_pay"] == "900.00"
+    assert allowed.json()["net_pay_formatted"] == "₹900.00"
+    hr_allowed = client.get("/payslips/EMP-1001/PR-P2-TEST", headers={"X-User-Id": "U-HR"})
+    assert hr_allowed.status_code == 200
+    denied_pdf = client.get("/payslips/EMP-1001/PR-P2-TEST/pdf", headers={"X-User-Id": "U-STRANGER"})
+    assert denied_pdf.status_code == 403
+    pdf_response = client.get("/payslips/EMP-1001/PR-P2-TEST/pdf", headers={"X-User-Id": "U-OWNER"})
+    assert pdf_response.headers["content-type"].startswith("application/pdf")
+    assert pdf_response.content.startswith(b"%PDF")
+    hr_pdf = client.get("/payslips/EMP-1001/PR-P2-TEST/pdf", headers={"X-User-Id": "U-HR"})
+    assert hr_pdf.status_code == 200 and hr_pdf.content.startswith(b"%PDF")
     calculated = client.get("/payroll/runs/PR-P2-TEST/items/EMP-1001")
     assert calculated.status_code == 200
     assert calculated.json()["gross_pay"] == 1000

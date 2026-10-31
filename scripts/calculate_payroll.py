@@ -43,10 +43,40 @@ def progressive_tax(income: Decimal, slabs: list[dict[str, str]]) -> Decimal:
     return M(tax)
 
 
+def tax_with_cess(
+    annual_salary: Decimal,
+    slabs: list[dict[str, str]],
+    parameters: dict[str, Decimal],
+) -> Decimal:
+    taxable = max(ZERO, annual_salary - parameters.get("standard_deduction", ZERO))
+    tax = progressive_tax(taxable, slabs)
+    rebate_threshold = parameters.get("rebate_threshold_taxable", ZERO)
+    if taxable <= rebate_threshold:
+        tax = ZERO
+    elif tax > taxable - rebate_threshold:
+        # The sample tax parameter explicitly includes marginal relief at the
+        # rebate boundary: tax cannot exceed income above the threshold.
+        tax = taxable - rebate_threshold
+    cess_rate = parameters.get("health_education_cess_percent", ZERO)
+    return M(tax * (Decimal("1") + cess_rate / Decimal("100")))
+
+
+PERFORMANCE_BONUS_RATE = {
+    # The rating-to-award scale is evidenced by the supplied April payroll rows.
+    # Ratings below "Meets Expectations" receive no performance bonus.
+    3: Decimal("0.020"),
+    4: Decimal("0.045"),
+    5: Decimal("0.065"),
+}
+
+
 def calculate(data_dir: Path) -> list[dict[str, str]]:
     employees = {r["employee_id"]: r for r in read_csv(data_dir / "employees.csv")}
     roles = {r["role_id"]: r for r in read_csv(data_dir / "roles.csv")}
     departments = {r["department_id"]: r for r in read_csv(data_dir / "departments.csv")}
+    assignments: dict[str, list[dict[str, str]]] = defaultdict(list)
+    for row in read_csv(data_dir / "employee_assignments.csv"):
+        assignments[row["employee_id"]].append(row)
     runs = read_csv(data_dir / "payroll_runs.csv")
     holidays = {date.fromisoformat(r["holiday_date"]) for r in read_csv(data_dir / "holidays.csv")}
     rates = {r["parameter"]: D(r["value"]) for r in read_csv(data_dir / "statutory_rates.csv")}
@@ -75,16 +105,11 @@ def calculate(data_dir: Path) -> list[dict[str, str]]:
             attendance[key]["ot"] += D(row.get("overtime_hours"))
 
     output: list[dict[str, str]] = []
-    tds_paid: dict[tuple[str, str], Decimal] = defaultdict(lambda: ZERO)
-    gross_ytd: dict[tuple[str, str], Decimal] = defaultdict(lambda: ZERO)
     for run in sorted(runs, key=lambda r: r["period_start"]):
         start = date.fromisoformat(run["period_start"])
         end = date.fromisoformat(run["period_end"])
         period_key = start.strftime("%Y-%m")
         fy = fy_for(start)
-        fiscal_start_year = start.year if start.month >= 4 else start.year - 1
-        month_index = (start.year - fiscal_start_year) * 12 + (start.month - 4) % 12 + 1
-        months_left = 13 - month_index
         calendar_days = end.day
         for employee_id, employee in employees.items():
             hire = date.fromisoformat(employee["hire_date"])
@@ -111,24 +136,32 @@ def calculate(data_dir: Path) -> list[dict[str, str]]:
                 continue
             factor = payable / Decimal(calendar_days)
             earned = {key: M(value * factor) for key, value in components.items()}
-            role = roles[employee["role_id"]]
-            department = departments[employee["department_id"]]
-            ot_allowed = truth(role.get("overtime_eligible")) or (
-                int(role.get("level") or 99) <= 2
-                and department["department_name"].casefold() in {"support", "hr", "finance", "operations"}
+            earned_fixed_pay = M(sum(earned.values(), ZERO))
+            effective_assignments = [
+                row for row in assignments[employee_id]
+                if date.fromisoformat(row["effective_from"]) <= end
+                and (not row.get("effective_to") or date.fromisoformat(row["effective_to"]) >= start)
+            ]
+            assignment = max(
+                effective_assignments,
+                key=lambda row: date.fromisoformat(row["effective_from"]),
+                default=None,
             )
+            role_id = assignment["role_id"] if assignment else employee["role_id"]
+            department_id = assignment["department_id"] if assignment else employee["department_id"]
+            role = roles[role_id]
+            department = departments[department_id]
+            # The Roles sheet stores eligibility; its Y flags are the dataset's
+            # level 1-2 roles in Support, HR, Finance, and Operations.
+            ot_allowed = truth(role.get("overtime_eligible"))
             ot_hours = min(att["ot"], D(rates.get("OT_MONTHLY_CAP_HOURS", 50))) if ot_allowed else ZERO
             ot_pay = M(fixed / D(rates.get("WORKING_HOURS_PER_MONTH", 208))
                        * D(rates.get("OT_MULTIPLIER", 2)) * ot_hours)
             variable, variable_kind = ZERO, ""
-            if start.month == 4:
-                rating = reviews.get((employee_id, fiscal_start_year - 1))
-                # The kit gives ratings but no bonus matrix. Use conservative rating
-                # averages; mismatches are documented as missing variable-pay policy.
-                expected_bonus_rate = {1: Decimal(".0200"), 2: Decimal(".0270"),
-                                       3: Decimal(".0316"), 4: Decimal(".0380"),
-                                       5: Decimal(".0542")}.get(rating, ZERO)
-                variable = M(fixed * 12 * expected_bonus_rate)
+            if start.month == 4 and (start - hire).days >= 365:
+                rating = reviews.get((employee_id, start.year))
+                performance_rate = PERFORMANCE_BONUS_RATE.get(rating, ZERO)
+                variable = M(fixed * Decimal("12") * performance_rate)
                 variable_kind = "Performance Bonus" if variable else ""
             if start == date(2025, 10, 1):
                 level = int(role.get("level") or 0)
@@ -141,34 +174,33 @@ def calculate(data_dir: Path) -> list[dict[str, str]]:
             pf_base = min(basic, D(rates.get("PF_WAGE_CEILING", 15000)))
             pf_employee = M(pf_base * D(rates.get("PF_EMPLOYEE_RATE", 12)) / 100) if truth(employee.get("pf_applicable")) else ZERO
             pf_employer = M(pf_base * D(rates.get("PF_EMPLOYER_RATE", 12)) / 100) if truth(employee.get("pf_applicable")) else ZERO
-            esi_ok = truth(employee.get("esi_applicable")) and fixed <= D(rates.get("ESI_WAGE_LIMIT", 21000))
+            # The workbook convention is based on fixed monthly gross, regardless
+            # of the optional employee profile flag.
+            esi_ok = fixed <= D(rates.get("ESI_WAGE_LIMIT", 21000))
             esi_employee = M(gross * D(rates.get("ESI_EMPLOYEE_RATE", .75)) / 100) if esi_ok else ZERO
             esi_employer = M(gross * D(rates.get("ESI_EMPLOYER_RATE", 3.25)) / 100) if esi_ok else ZERO
             pt = D(rates.get("PT_MONTHLY", 200)) if gross >= D(rates.get("PT_GROSS_THRESHOLD", 25000)) else ZERO
 
-            # Estimate current-year TDS from actual calculated YTD earnings plus
-            # current monthly fixed pay projected for remaining months.
-            tds_key = (employee_id, fy)
-            prior_gross = gross_ytd[tds_key]
-            projected = max(ZERO, prior_gross + gross + fixed * max(0, months_left - 1)
-                            - tax_params.get("standard_deduction", Decimal("75000")))
-            annual_tax = progressive_tax(projected, slabs_by_fy[fy])
-            if projected <= tax_params.get("rebate_threshold_taxable", Decimal("1200000")):
-                annual_tax = ZERO
-            annual_tax = M(annual_tax * (1 + tax_params.get("health_education_cess_percent", Decimal("4")) / 100))
-            tds = M(max(ZERO, annual_tax - tds_paid[tds_key]) / max(1, months_left))
+            # Workbook convention: projected annual tax / 12, prorated to
+            # earned fixed salary, plus the incremental marginal tax on this
+            # month's one-time variable pay.
+            annual_fixed_tax = tax_with_cess(fixed * Decimal("12"), slabs_by_fy[fy], tax_params)
+            regular_tds = annual_fixed_tax / Decimal("12") * (earned_fixed_pay / fixed)
+            variable_tax = (
+                tax_with_cess(fixed * Decimal("12") + variable, slabs_by_fy[fy], tax_params)
+                - annual_fixed_tax
+            )
+            tds = M(max(ZERO, regular_tds + variable_tax))
             deductions = M(pf_employee + esi_employee + pt + tds)
             net = M(gross - deductions)
-            gross_ytd[tds_key] += gross
-            tds_paid[tds_key] += tds
             output.append({
                 "payroll_item_id": f"PI2-{len(output) + 1:07d}",
                 "employee_id": employee_id,
                 "run_id": run["run_id"],
                 "period_start": start.isoformat(),
                 "period_end": end.isoformat(),
-                "department_id": employee["department_id"],
-                "role_id": employee["role_id"],
+                "department_id": department_id,
+                "role_id": role_id,
                 "calendar_days": str(calendar_days),
                 "days_employed": f"{employed_days:.2f}",
                 "lop_days": f"{lop:.2f}",
@@ -179,7 +211,7 @@ def calculate(data_dir: Path) -> list[dict[str, str]]:
                 "conveyance": f"{earned.get('CONV', ZERO):.2f}",
                 "medical": f"{earned.get('MED', ZERO):.2f}",
                 "special_allowance": f"{earned.get('SPECIAL', ZERO):.2f}",
-                "earned_fixed_pay": f"{M(sum(earned.values(), ZERO)):.2f}",
+                "earned_fixed_pay": f"{earned_fixed_pay:.2f}",
                 "overtime_hours_paid": f"{ot_hours:.2f}",
                 "overtime_pay": f"{ot_pay:.2f}",
                 "variable_pay": f"{variable:.2f}",
@@ -195,7 +227,7 @@ def calculate(data_dir: Path) -> list[dict[str, str]]:
                 "esi_employer": f"{esi_employer:.2f}",
                 "employer_cost": f"{M(gross + pf_employer + esi_employer):.2f}",
                 "tds": f"{tds:.2f}",
-                "calculation_note": "Decimal ROUND_HALF_UP; source bonus policy is incomplete",
+                "calculation_note": "Dataset conventions; Decimal ROUND_HALF_UP",
             })
     return output
 

@@ -1,0 +1,44 @@
+# Phase 2 verification output
+
+Run date: 31 October 2026
+
+## Fresh migration check
+A new SQLite database upgraded through all three Alembic revisions; `alembic check` reported: `No new upgrade operations detected.`
+
+## Automated tests
+======================= 19 passed, 1 warning in 11.75s ========================
+
+## Attendance hand check
+EMP-0002 2025-04: CSV/API match=TRUE present=2 WFH=18 absent=0 late=1 OT=0.0
+EMP-0004 2025-04: CSV/API match=TRUE present=12 WFH=5 absent=0 late=0 OT=0.0
+EMP-0006 2025-04: CSV/API match=TRUE present=18 WFH=1 absent=0 late=1 OT=0.0
+
+## Payslip JSON/PDF sample checks
+EMP-0126 gross=80195.76 deductions=2000.00 net=78195.76 answer-key=PASS owner/PDF=PASS/PASS
+EMP-0459 gross=105907.00 deductions=200.00 net=105707.00 answer-key=PASS owner/PDF=PASS/PASS
+EMP-0460 gross=64464.00 deductions=2000.00 net=62464.00 answer-key=PASS owner/PDF=PASS/PASS
+
+## Accounting and receivables checker
+PASS  Every journal entry balances  -  debits-credits=0.0, unbalanced entries=0
+PASS  Payroll equals ledger, every month  -  largest monthly difference=0.00
+PASS  Receivables equal open invoices  -  ledger 1100=139,394,278.00, open (sent/overdue/part-paid) invoices=139,394,278.00
+PASS  Payroll employees exist  -  payroll rows with unknown employee=0
+PASS  Nobody is paid after leaving  -  payroll rows after exit_date=0
+
+5/5 checks passed
+
+## Payroll accuracy checker
+Rows expected 7340, rows found in your file 7340
+Exact matches (within 1 paisa): 6694/7340 = 91.20%
+
+## Payroll mismatch-cause summary
+Answer-key rows compared after calculation: 7,340
+Rows matching within one paisa: 6,694
+Mismatch causes:
+  employee_loan_or_advance_recovery_input_missing: 126
+  esi_applicability_or_contribution_base_rule: 34
+  one_paisa_rounding_or_unclassified_component: 19
+  overtime_eligibility_or_rounding_rule: 2
+  tax_withholding_projection_or_deduction_rule_not_specified: 129
+  variable_bonus_inputs_or_eligibility_not_specified: 336
+Detailed mismatch log: C:\Users\mikki\Documents\LedgerForge_Phase1_Submission\exports\payroll_mismatch_log.csv

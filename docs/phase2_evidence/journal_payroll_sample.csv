@@ -1,0 +1,44 @@
+entry_id,entry_date,posting_period,account_code,account_name,debit_inr,credit_inr,description
+JE-000105,2025-04-30,2025-04,5001,Salaries & Wages,479009.00,0.00,Salaries & Wages - D00
+JE-000105,2025-04-30,2025-04,5004,Employer PF Contribution,1800.00,0.00,Employer PF Contribution - D00
+JE-000105,2025-04-30,2025-04,5001,Salaries & Wages,16290509.35,0.00,Salaries & Wages - D01
+JE-000105,2025-04-30,2025-04,5003,Incentives & Bonus,4898545.62,0.00,Incentives & Bonus - D01
+JE-000105,2025-04-30,2025-04,5004,Employer PF Contribution,239053.78,0.00,Employer PF Contribution - D01
+JE-000105,2025-04-30,2025-04,5001,Salaries & Wages,3344341.97,0.00,Salaries & Wages - D02
+JE-000105,2025-04-30,2025-04,5003,Incentives & Bonus,1445150.70,0.00,Incentives & Bonus - D02
+JE-000105,2025-04-30,2025-04,5004,Employer PF Contribution,34200.00,0.00,Employer PF Contribution - D02
+JE-000105,2025-04-30,2025-04,5001,Salaries & Wages,5580434.22,0.00,Salaries & Wages - D03
+JE-000105,2025-04-30,2025-04,5003,Incentives & Bonus,1795213.02,0.00,Incentives & Bonus - D03
+JE-000105,2025-04-30,2025-04,5004,Employer PF Contribution,86168.76,0.00,Employer PF Contribution - D03
+JE-000105,2025-04-30,2025-04,5001,Salaries & Wages,4326528.17,0.00,Salaries & Wages - D04
+JE-000105,2025-04-30,2025-04,5003,Incentives & Bonus,1494522.12,0.00,Incentives & Bonus - D04
+JE-000105,2025-04-30,2025-04,5004,Employer PF Contribution,64829.53,0.00,Employer PF Contribution - D04
+JE-000105,2025-04-30,2025-04,5001,Salaries & Wages,1184662.19,0.00,Salaries & Wages - D05
+JE-000105,2025-04-30,2025-04,5003,Incentives & Bonus,466312.02,0.00,Incentives & Bonus - D05
+JE-000105,2025-04-30,2025-04,5004,Employer PF Contribution,18814.47,0.00,Employer PF Contribution - D05
+JE-000105,2025-04-30,2025-04,5001,Salaries & Wages,2312976.66,0.00,Salaries & Wages - D06
+JE-000105,2025-04-30,2025-04,5002,Overtime Expense,60401.62,0.00,Overtime Expense - D06
+JE-000105,2025-04-30,2025-04,5003,Incentives & Bonus,622395.12,0.00,Incentives & Bonus - D06
+JE-000105,2025-04-30,2025-04,5004,Employer PF Contribution,70818.12,0.00,Employer PF Contribution - D06
+JE-000105,2025-04-30,2025-04,5005,Employer ESI Contribution,4317.71,0.00,Employer ESI Contribution - D06
+JE-000105,2025-04-30,2025-04,5001,Salaries & Wages,1124252.49,0.00,Salaries & Wages - D07
+JE-000105,2025-04-30,2025-04,5002,Overtime Expense,32991.98,0.00,Overtime Expense - D07
+JE-000105,2025-04-30,2025-04,5003,Incentives & Bonus,472362.90,0.00,Incentives & Bonus - D07
+JE-000105,2025-04-30,2025-04,5004,Employer PF Contribution,22935.69,0.00,Employer PF Contribution - D07
+JE-000105,2025-04-30,2025-04,5001,Salaries & Wages,1918679.23,0.00,Salaries & Wages - D08
+JE-000105,2025-04-30,2025-04,5002,Overtime Expense,37139.83,0.00,Overtime Expense - D08
+JE-000105,2025-04-30,2025-04,5003,Incentives & Bonus,641344.80,0.00,Incentives & Bonus - D08
+JE-000105,2025-04-30,2025-04,5004,Employer PF Contribution,23827.53,0.00,Employer PF Contribution - D08
+JE-000105,2025-04-30,2025-04,5001,Salaries & Wages,2183152.47,0.00,Salaries & Wages - D09
+JE-000105,2025-04-30,2025-04,5002,Overtime Expense,40394.75,0.00,Overtime Expense - D09
+JE-000105,2025-04-30,2025-04,5003,Incentives & Bonus,485833.62,0.00,Incentives & Bonus - D09
+JE-000105,2025-04-30,2025-04,5004,Employer PF Contribution,42116.06,0.00,Employer PF Contribution - D09
+JE-000105,2025-04-30,2025-04,5001,Salaries & Wages,1032549.50,0.00,Salaries & Wages - D10
+JE-000105,2025-04-30,2025-04,5003,Incentives & Bonus,470407.08,0.00,Incentives & Bonus - D10
+JE-000105,2025-04-30,2025-04,5004,Employer PF Contribution,14400.00,0.00,Employer PF Contribution - D10
+JE-000105,2025-04-30,2025-04,2100,Salaries Payable,0.00,46035111.16,Net salaries payable
+JE-000105,2025-04-30,2025-04,2110,PF Payable,0.00,1237927.88,PF payable (employee + employer)
+JE-000105,2025-04-30,2025-04,2120,ESI Payable,0.00,5314.10,ESI payable (employee + employer)
+JE-000105,2025-04-30,2025-04,2130,TDS on Salary Payable,0.00,6007238.94,TDS on salary payable
+JE-000105,2025-04-30,2025-04,2140,Professional Tax Payable,0.00,74800.00,Professional tax payable
+JE-000105,2025-04-30,2025-04,1300,Employee Advances & Loans,0.00,3000.00,Recovery of employee advances
